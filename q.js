@@ -1042,6 +1042,7 @@ Promise.prototype.isRejected = function () {
 // shimmed environments, this would naturally be a `Set`.
 var unhandledReasons = [];
 var unhandledRejections = [];
+var unhandledRejectionHandlers = [];
 var reportedUnhandledRejections = [];
 var trackUnhandledRejections = true;
 
@@ -1073,6 +1074,9 @@ function trackRejection(promise, reason) {
     } else {
         unhandledReasons.push("(no stack) " + reason);
     }
+    unhandledRejectionHandlers.forEach(function (handler) {
+        handler.apply(null, [reason, promise]);
+    });
 }
 
 function untrackRejection(promise) {
@@ -1106,6 +1110,10 @@ Q.getUnhandledReasons = function () {
 Q.stopUnhandledRejectionTracking = function () {
     resetUnhandledRejections();
     trackUnhandledRejections = false;
+};
+
+Q.addUnhandledRejectionHandler = function (handler) {
+    unhandledRejectionHandlers.push(handler);
 };
 
 resetUnhandledRejections();

@@ -2889,4 +2889,16 @@ describe("unhandled rejection reporting", function () {
 
         expect(Q.getUnhandledReasons()).toEqual([]);
     });
+
+    it("invokes unhandled rejection handlers with the rejected reason", function () {
+        var calls = [];
+        function callback() {
+            calls.push(Array.prototype.slice.call(arguments));
+        }
+        Q.addUnhandledRejectionHandler(callback);
+        Q.addUnhandledRejectionHandler(callback);
+        var rejectedPromise = Q.reject("a reason");
+        expect(calls.length).toBe(2);
+        expect(calls[0]).toEqual(["a reason", rejectedPromise]);
+    });
 });
