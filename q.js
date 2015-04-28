@@ -1066,9 +1066,10 @@ function trackRejection(promise, reason) {
     } else {
         unhandledReasons.push("(no stack) " + reason);
     }
-    unhandledRejectionHandlers.forEach(function (handler) {
+    for (var i = 0; i < unhandledRejectionHandlers.length; i++) {
+        var handler = unhandledRejectionHandlers[i];
         handler.apply(null, [reason, promise]);
-    });
+    }
 }
 
 function untrackRejection(promise) {
