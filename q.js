@@ -55,11 +55,22 @@
         }
 
     // <script>
-    } else if (typeof self !== "undefined") {
-        self.Q = definition();
+    } else if (typeof window !== "undefined" || typeof self !== "undefined") {
+        // Prefer window over self for add-on scripts. Use self for
+        // non-windowed contexts.
+        var global = typeof window !== "undefined" ? window : self;
 
-    } else {
-        throw new Error("This environment was not anticipated by Q. Please file a bug.");
+        // Get the `window` object, save the previous Q global
+        // and initialize Q as a global.
+        var previousQ = global.Q;
+        global.Q = definition();
+
+        // Add a noConflict function so Q can be removed from the
+        // global namespace.
+        global.Q.noConflict = function () {
+            global.Q = previousQ;
+            return this;
+        };
     }
 
 })(function () {
@@ -711,7 +722,7 @@ Promise.prototype.join = function (that) {
             // TODO: "===" should be Object.is or equiv
             return x;
         } else {
-            throw new Error("Can't join: not the same: " + x + " " + y);
+            throw new Error("Q can't join: not the same: " + x + " " + y);
         }
     });
 };
@@ -1055,9 +1066,10 @@ function trackRejection(promise, reason) {
     } else {
         unhandledReasons.push("(no stack) " + reason);
     }
-    unhandledRejectionHandlers.forEach(function (handler) {
+    for (var i = 0; i < unhandledRejectionHandlers.length; i++) {
+        var handler = unhandledRejectionHandlers[i];
         handler.apply(null, [reason, promise]);
-    });
+    }
 }
 
 function untrackRejection(promise) {
@@ -1616,13 +1628,12 @@ function any(promises) {
         function onFulfilled(result) {
             deferred.resolve(result);
         }
-        function onRejected() {
+        function onRejected(err) {
             pendingCount--;
             if (pendingCount === 0) {
-                deferred.reject(new Error(
-                    "Can't get fulfillment value from any promise, all " +
-                    "promises were rejected."
-                ));
+                err.message = ("Q can't get fulfillment value from any promise, all " +
+                    "promises were rejected. Last error message: " + err.message);
+                deferred.reject(err);
             }
         }
         function onProgress(progress) {
@@ -1746,6 +1757,9 @@ Q["finally"] = function (object, callback) {
 
 Promise.prototype.fin = // XXX legacy
 Promise.prototype["finally"] = function (callback) {
+    if (!callback || typeof callback.apply !== "function") {
+        throw new Error("Q can't apply finally callback");
+    }
     callback = Q(callback);
     return this.then(function (value) {
         return callback.fcall().then(function () {
@@ -1909,6 +1923,9 @@ Promise.prototype.nfcall = function (/*...args*/) {
  */
 Q.nfbind =
 Q.denodeify = function (callback /*...args*/) {
+    if (callback === undefined) {
+        throw new Error("Q can't wrap an undefined function");
+    }
     var baseArgs = array_slice(arguments, 1);
     return function () {
         var nodeArgs = baseArgs.concat(array_slice(arguments));
@@ -2028,6 +2045,10 @@ Promise.prototype.nodeify = function (nodeback) {
     } else {
         return this;
     }
+};
+
+Q.noConflict = function() {
+    throw new Error("Q.noConflict only works when Q is used as a global");
 };
 
 // All code before this point will be filtered from stack traces.
